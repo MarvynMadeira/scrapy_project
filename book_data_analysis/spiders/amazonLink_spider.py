@@ -2,6 +2,7 @@ import scrapy
 from datetime import datetime
 from book_data_analysis.items import ProductDataItem
 
+#Testar amanhã a função do preço 0
 
 class AmazonCollector(scrapy.Spider):
     name = 'amazonLink_spider'
@@ -19,7 +20,20 @@ class AmazonCollector(scrapy.Spider):
         for url in self.start_urls:
             yield scrapy.Request(url=url, callback=self.parse_item, headers=self.headers)
 
-    async def getCurrency(self, response):
+    def getTitle(self, response):
+        title = response.xpath('//*[@id="productTitle"]/text()').get().strip()
+
+        return title
+
+    def getCode(self, response):
+        if response.xpath('//a[contains(text(), "Kindle")]'):
+            code = response.xpath('//*[@id="detailBullets_feature_div"]/ul/li[1]/span/span[2]/text()').get()
+        else:
+            code = response.xpath('//*[@id="detailBullets_feature_div"]/ul/li[6]/span/span[2]/text()').get()
+
+        return code
+
+    def getCurrency(self, response):
         currency = response.xpath('//*[@id="corePriceDisplay_desktop_feature_div"]/div[1]/span[3]/span[2]/span[1]/text()').get()
 
         if currency is not None:
@@ -28,10 +42,43 @@ class AmazonCollector(scrapy.Spider):
         currency = response.xpath('//*[@id="KindleALCLegacy_feature_div"]/div/div[1]/div[1]/div[1]/span[3]/span[2]/span[1]/text()').get()
         return currency
 
-        ## fazer com todos que tem 2 xpath possíveis e com o price amanhã.
+    def getPrice(self, response):
+        price_none = response.xpath('//*[contains(text(), "0,00")]/text()').get()
 
+        if price_none and '0,00' in price_none:
+            return '0'
 
-    async def parse_item(self, response):
+        price = response.xpath('//*[@id="corePriceDisplay_desktop_feature_div"]/div[1]/span[3]/span[2]/span[2]/text()').get()
+
+        if price is not None:
+            return price
+
+        price = response.xpath('//*[@id="KindleALCLegacy_feature_div"]/div/div[1]/div[1]/div[1]/span[3]/span[2]/span[2]/text()').get()
+        return price
+
+    def getCent(self, response):
+        if self.getPrice(response) == '0':
+            return '00'
+
+        cent = response.xpath('//*[@id="corePriceDisplay_desktop_feature_div"]/div[1]/span[3]/span[2]/span[3]/text()').get()
+
+        if cent is not None:
+            return cent
+
+        cent = response.xpath('//*[@id="KindleALCLegacy_feature_div"]/div/div[1]/div[1]/div[1]/span[3]/span[2]/span[3]/text()').get()
+        return cent
+
+    def priceConvert(self, response):
+        price = self.getPrice(response)
+        cent = self.getCent(response)
+
+        string = f'{price},{cent}'
+        inFloat = float(string.replace(',', '.'))
+        inInt = int(inFloat * 100)
+
+        return inInt
+
+    def parse_item(self, response):
         info = response.xpath('//*[@id="bylineInfo"]/span/a/text()').get()
 
         if info is None:
@@ -40,16 +87,11 @@ class AmazonCollector(scrapy.Spider):
 
         item = ProductDataItem()
         self.logger.info("Extraindo dados do produto")
-        item['title'] = response.xpath('//*[@id="productTitle"]/text()').get().strip()
-        item['code'] = response.xpath('//*[@id="detailBullets_feature_div"]/ul/li[6]/span/span[2]/text()', '//*[@id="detailBullets_feature_div"]/ul/li[1]/span/span[2]/text()').get()
+        item['title'] = self.getTitle(response)
+        item['code'] = self.getCode(response)
         item['url'] = response.url
         item['currency'] = self.getCurrency(response)
-        valueItem = response.xpath('//*[@id="corePriceDisplay_desktop_feature_div"]/div[1]/span[3]/span[2]/span[2]/text()', '//*[@id="KindleALCLegacy_feature_div"]/div/div[1]/div[1]/div[1]/span[3]/span[2]/span[2]/text()').get()
-        centItem = response.xpath('//*[@id="corePriceDisplay_desktop_feature_div"]/div[1]/span[3]/span[2]/span[3]/text()', '//*[@id="KindleALCLegacy_feature_div"]/div/div[1]/div[1]/div[1]/span[3]/span[2]/span[3]/text()').get()
-        price_string = f'{valueItem},{centItem}'
-        price_float = float(price_string.replace(',', '.'))
-        price_convert = int(price_float * 100)
-        item['present_price'] = price_convert
+        item['present_price'] = self.priceConvert(response)
         item['created_at'] = datetime.now()
         print("Item emitido:", item)
 
