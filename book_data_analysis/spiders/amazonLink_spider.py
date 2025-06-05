@@ -2,7 +2,8 @@ import scrapy
 from datetime import datetime
 from book_data_analysis.items import ProductDataItem
 
-#Testar amanhã a função do preço 0
+#implementar proxies ou um user agent aleatório
+
 
 class AmazonCollector(scrapy.Spider):
     name = 'amazonLink_spider'
@@ -34,6 +35,11 @@ class AmazonCollector(scrapy.Spider):
         return code
 
     def getCurrency(self, response):
+        currency_none = response.xpath('//*[@id="priceBlock-outsideOfForm_feature_div"]/div/div[1]/span[3]/span[2]/span[1]/text()').get()
+
+        if currency_none is not None:
+            return currency_none
+
         currency = response.xpath('//*[@id="corePriceDisplay_desktop_feature_div"]/div[1]/span[3]/span[2]/span[1]/text()').get()
 
         if currency is not None:
@@ -43,10 +49,11 @@ class AmazonCollector(scrapy.Spider):
         return currency
 
     def getPrice(self, response):
-        price_none = response.xpath('//*[contains(text(), "0,00")]/text()').get()
+        price_none = response.xpath('//*[@id="priceBlock-outsideOfForm_feature_div"]/div/div[1]/span[3]/span[2]/span[3]/text()').get()
 
-        if price_none and '0,00' in price_none:
+        if price_none is not None:
             return '0'
+
 
         price = response.xpath('//*[@id="corePriceDisplay_desktop_feature_div"]/div[1]/span[3]/span[2]/span[2]/text()').get()
 
