@@ -2,16 +2,10 @@ import scrapy
 from datetime import datetime
 from book_data_analysis.items import ProductDataItem
 
-#implementar proxies ou um user agent aleatório
-
 
 class AmazonCollector(scrapy.Spider):
     name = 'amazonLink_spider'
     allowed_domains = ['amazon.com.br', 'amazon.com']
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-                      '(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36'
-    }
 
     def __init__(self, url=None, *args, **kwargs):
         super(AmazonCollector, self).__init__(*args, **kwargs)
@@ -19,7 +13,7 @@ class AmazonCollector(scrapy.Spider):
 
     async def start(self):
         for url in self.start_urls:
-            yield scrapy.Request(url=url, callback=self.parse_item, headers=self.headers)
+            yield scrapy.Request(url=url, callback=self.parse_item)
 
     def getTitle(self, response):
         title = response.xpath('//*[@id="productTitle"]/text()').get().strip()
@@ -87,6 +81,7 @@ class AmazonCollector(scrapy.Spider):
 
     def parse_item(self, response):
         info = response.xpath('//*[@id="bylineInfo"]/span/a/text()').get()
+        print(f'valor inserido: {info}')
 
         if info is None:
             self.logger.warning(f"livro não encontrado!!! Por favor, insira uma url de livros...")
